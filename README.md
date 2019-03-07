@@ -12,6 +12,7 @@ A javascript file uploader based on html5
     <script src="index.js"></script>
 </head>
 <body>
+    <input type="file" id="myfile">
 </body>
 </html>
 ```
@@ -30,33 +31,33 @@ var up = new FileUploader('myfile', {
     ,fileSizeLimit: 102410245  // 5Mb
 });
 
-// 其他一些配置
-// 服务器地址
+// upload server
 up.configs.server = '/api/upload';
+
 /**
- * 以 form 方式传到服务器的一些额外数据
+ * other post params
  */
 up.configs.postParams = {
     token: 'xxx',
     otherinfo: 'xxx'
 };
+
 /**
- * 设置一些 header 头信息
+ * headers info
  */
 up.configs.headers = {
     'csrf': 'xxx'
 };
 
 /**
- * 选择的文件加入队列后触发
+ * called on a file added to queue
  */
 up.fileQueuedHandler = function(file) {
-     // 可以在这里渲染上传进度页面
      console.log('one file queued: ', file);
 }
 
 /**
- * 多选情况下当所有文件都加入队列后触发
+ * called on all selected files queued
  */
 up.filesQueuedCompleteHandler = function(obj) {
      // 非自动上传模式下，可以在这里调用上传方法手动上传
@@ -66,15 +67,14 @@ up.filesQueuedCompleteHandler = function(obj) {
 }
 
 /**
- * 上传进度回调
+ * upload progress
  */
 up.uploadProgressHandler = function(file, percent) {
-     // 可以在这里处理进度条
      console.log(percent);
 }
 
 /**
- * 当有文件上传成功是触发
+ * called on a file upload success
  */
 up.uploadSuccessHandler = function(file, serverData) {
      // serverData 为服务器返回的数据
@@ -82,7 +82,7 @@ up.uploadSuccessHandler = function(file, serverData) {
 }
 
 /**
- * 当所有文件都上传成功后触发
+ * called on all files upload success or fail
  */
 up.uploadCompleteHandler = function() {
      console.log('upload complete');
