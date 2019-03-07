@@ -1,22 +1,14 @@
-# h5-fileuploader
-A javascript file uploader based on html5
-
-# Usage
-
-```html
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Demo</title>
-    <script src="index.js"></script>
+    <script src="../index.js"></script>
 </head>
 <body>
-</body>
-</html>
-```
+<input type="file" id="myfile">
 
-```javascript
+<script>
 var up = new FileUploader('myfile', {
     // 服务端接收文件的名称
     fieldName: 'file'
@@ -87,16 +79,6 @@ up.uploadSuccessHandler = function(file, serverData) {
 up.uploadCompleteHandler = function() {
      console.log('upload complete');
 }
-```
-
-# Support
-
-Theoretically supports all html5 browsers.
-
-+ IE 10+
-
-+ Chrome
-
-+ Firefox
-
-+ Safari
+</script>
+</body>
+</html>
