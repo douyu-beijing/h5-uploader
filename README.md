@@ -28,7 +28,7 @@ var up = new FileUploader('myfile', {
     // 接收的文件类型
     ,accept: 'image/jpg, image/jpeg, image/png, image/gif'
     // 文件大小限制
-    ,fileSizeLimit: 102410245  // 5Mb
+    ,fileSizeLimit: 1024 * 1024 * 5  // 5Mb
 });
 
 // upload server
