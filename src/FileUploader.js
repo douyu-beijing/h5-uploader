@@ -9,43 +9,37 @@
  *
  * eg.
  *
- * var up = new FileUploader('elementId', {
- *      server: 'http://localhost/upload.php',
+ * const up = new FileUpload({
+ *      fileElement: domElement,
+ *      server: '/api/upload',
  *      fieldName: 'file'
  * });
  *
  * up.fileQueuedHandler = function(file) {
- *      // 一个文件加入队列后触发
- *      // 可以在这里渲染上传进度页面
+ *      // called on a file added to queue
  * }
  *
  * up.filesQueuedCompleteHandler = function(obj) {
- *      // 所有文件加入队列后触发
- *      // 可以在这里调用上传方法开始上传
+ *      // called on all selected files queued
+ *
+ *      // up.startUpload();
  * }
  *
  * up.uploadProgressHandler = function(file, percent) {
- *      // 上传进度回调
- *      // 可以在这里处理进度条
+ *      // upload progress
  * }
  *
  * up.uploadSuccessHandler = function(file, serverData) {
- *      // 一个文件上传完成触发
- *      // serverData 为服务器返回的数据
- *      // 可以在这里对服务器返回的数据进行处理
+ *      // called on a file upload success
  * }
  *
  * up.uploadCompleteHandler = function() {
- *      // 队列中所有文件上传完成触发
+ *      // called on all files upload success or fail
  * }
  *
- * up.startUpload();
- *
  */
-export default function FileUploader(id, options) {
+export default function FileUpload(options) {
     this.doc = document;
-    this.fileInput = null;
-    this.id = id;
 
     this.xhr = new XMLHttpRequest();
 
@@ -68,6 +62,7 @@ export default function FileUploader(id, options) {
     this.uploadCompleteHandler = null;
 
     this.configs = {
+        fileElement: null,
         postParams: {}
         ,headers: {}
         ,server: ''
@@ -76,28 +71,29 @@ export default function FileUploader(id, options) {
         ,withCredentials: false
 
         ,auto: false
-        ,multiple: true
+        ,multiple: false
         ,accept: 'image/jpg, image/jpeg, image/png, image/gif'
-        ,fileSizeLimit: 1024 * 1024 * 5  // 5Mb
+        ,fileSizeLimit: 1024 * 1024  // 1Mb
     };
 
-    this.init(options);
+    this.initOptions(options);
+    this.initFileComponent();
 };
-FileUploader.prototype = {
-    constructor: FileUploader,
+FileUpload.prototype = {
+    constructor: FileUpload,
     extend: function(origin, configs) {
         if(undefined === configs) {
             return origin;
         }
 
-        for(var k in configs) {
+        for(let k in configs) {
             origin[k] = configs[k];
         }
 
         return origin;
     },
     fireEvent: function(eventName, data, message) {
-        var handler = eventName + 'Handler';
+        let handler = eventName + 'Handler';
 
         if(null === this[handler]) {
             return;
@@ -106,10 +102,10 @@ FileUploader.prototype = {
         this[handler](data, message);
     },
     setupXHR: function(file) {
-        var _self = this;
+        let _self = this;
 
-        this.xhr.upload.onprogress = function(e) {
-            var percent = 0;
+        this.xhr.upload.onprogress = (e) => {
+            let percent = 0;
             if(e.lengthComputable) {
                 percent = e.loaded / e.total;
             }
@@ -117,7 +113,7 @@ FileUploader.prototype = {
             _self.fireEvent('uploadProgress', file, percent);
         };
 
-        this.xhr.onreadystatechange = function() {
+        this.xhr.onreadystatechange = () => {
             if(4 !== _self.xhr.readyState) {
                 return;
             }
@@ -140,62 +136,91 @@ FileUploader.prototype = {
         }
 
         // headers
-        for(var k in this.configs.headers) {
+        for(let k in this.configs.headers) {
             this.xhr.setRequestHeader(k, this.configs.headers[k]);
         }
     },
-    init: function(options) {
-        var _self = this;
+    clearFileInput: function() {
+        if(null !== this.configs.fileElement) {
+            this.configs.fileElement.value = '';
+        }
+    },
+    initOptions: function(options) {
+        let _self = this;
 
         if(undefined !== options) {
             this.extend(this.configs, options);
         }
 
-        this.fileInput = this.doc.getElementById(this.id);
-        this.fileInput.setAttribute('accept', this.configs.accept);
-        if(this.configs.multiple) {
-            this.fileInput.setAttribute('multiple', 'multiple');
-        }
-
-        this.fileInput.onchange = function(e) {
-            _self.selectFiles();
-        };
-
         // 自动上传
-        this.filesQueuedCompleteHandler = function(obj) {
+        this.filesQueuedCompleteHandler = (obj) => {
             if(_self.configs.auto) {
                 _self.startUpload();
             }
         };
     },
+    initFileComponent: function() {
+        let _self = this;
+        if(null === this.configs.fileElement) {
+            return;
+        }
+
+        this.configs.fileElement.setAttribute('accept', this.configs.accept);
+        if(this.configs.multiple) {
+            this.configs.fileElement.setAttribute('multiple', 'multiple');
+        }
+
+        this.configs.fileElement.onchange = (e) => {
+            _self.selectFiles(e.target.files);
+        };
+    },
     isValidFile: function(file) {
         if(file.size > this.configs.fileSizeLimit) {
-            return false;
+            return {
+                valid: false,
+                type: FileUpload.ERROR_FILE_SIZE_LIMIT,
+                message: 'File is too big'
+            };
         }
 
         if(-1 === this.configs.accept.indexOf(file.extension)) {
-            return false;
+            return {
+                valid: false,
+                type: FileUpload.ERROR_INVALID_FILE_TYPE,
+                message: 'Filetype is invalid'
+            };
         }
 
-        return true;
+        return {
+            valid: true,
+            type: -1,
+            message: ''
+        }
     },
-    selectFiles: function() {
-        var fileList = this.fileInput.files;
+    /**
+     * 将文件加入到队列
+     * 该方法由 input[type="file"] 控件自动调用 也可以手动调用该方法
+     *
+     * @param {FileList} fileList 原生 FileList 对象
+     */
+    selectFiles: function(fileList) {
         if(fileList.length <= 0) {
             return;
         }
 
-        this.filesQueue = new FileUploader.Queue();
+        if(null === this.filesQueue) {
+            this.filesQueue = new FileUpload.Queue();
+        }
 
-        var i = 0;
-        var len = fileList.length;
-        var tmpFile = null;
-        for(; i<len; i++) {
-            tmpFile = new FileUploader.File(fileList[i]);
+        let len = fileList.length;
+        let tmpFile = null;
+        for(let i=0; i<len; i++) {
+            tmpFile = new FileUpload.File(fileList[i]);
 
             // 检查规则
-            if(!this.isValidFile(tmpFile)) {
-                this.fireEvent('fileQueuedError', tmpFile, 'The selected file is invalid');
+            let validate = this.isValidFile(tmpFile);
+            if(!validate.valid) {
+                this.fireEvent('fileQueuedError', tmpFile, validate.type);
 
                 continue;
             }
@@ -211,9 +236,9 @@ FileUploader.prototype = {
         });
     },
     uploadAsFormData: function(file) {
-        var fd = new FormData();
+        let fd = new FormData();
 
-        for(var k in this.configs.postParams) {
+        for(let k in this.configs.postParams) {
             fd.append(k, this.configs.postParams[k]);
         }
 
@@ -224,10 +249,10 @@ FileUploader.prototype = {
         this.xhr.send(fd);
     },
     uploadAsBinary: function(file) {
-        var _self = this;
-        var fr = new FileReader();
+        let _self = this;
+        let fr = new FileReader();
 
-        fr.onload = function(e) {
+        fr.onload = (e) => {
             _self.xhr.send(this.result);
 
             fr = fr.onload = null;
@@ -259,11 +284,11 @@ FileUploader.prototype = {
      * 开始上传
      */
     startUpload: function() {
-        var file = this.filesQueue.take();
+        let file = this.filesQueue.take();
 
         if(null === file) {
-            // 清空 input
-            this.fileInput.value = '';
+            this.filesQueue = null;
+            this.clearFileInput();
 
             this.fireEvent('uploadComplete');
 
@@ -279,13 +304,16 @@ FileUploader.prototype = {
         this.uploadAsBinary(file);
     }
 };
-FileUploader.Queue = function() {
+FileUpload.ERROR_FILE_SIZE_LIMIT = 1;
+FileUpload.ERROR_INVALID_FILE_TYPE = 2;
+
+FileUpload.Queue = function() {
     this.headNode = null;
     this.tailNode = null;
     this.size = 0;
 };
-FileUploader.Queue.prototype.add = function(data) {
-    var node = new FileUploader.QueueNode(data, null);
+FileUpload.Queue.prototype.add = function(data) {
+    let node = new FileUpload.QueueNode(data, null);
 
     if(0 === this.size) {
         this.headNode = node;
@@ -298,14 +326,14 @@ FileUploader.Queue.prototype.add = function(data) {
 
     this.size++;
 };
-FileUploader.Queue.prototype.take = function() {
+FileUpload.Queue.prototype.take = function() {
     // 为空直接返回
     if(0 === this.size) {
         return null;
     }
 
-    var data = this.headNode.data;
-    var tmpHeadNode = this.headNode;
+    let data = this.headNode.data;
+    let tmpHeadNode = this.headNode;
 
     // 从队列去除头节点
     this.headNode = tmpHeadNode.next;
@@ -321,31 +349,57 @@ FileUploader.Queue.prototype.take = function() {
 
     return data;
 };
-FileUploader.Queue.prototype.clear = function() {
+FileUpload.Queue.prototype.delete = function(data) {
+    let prev = null;
+    let current = null;
+    for(current = this.headNode; null !== current; prev = current, current = current.next) {
+        if(data === current.data) {
+          // 前一个节点绕过本节点
+          if(null !== prev) {
+            prev.next = current.next
+          }
+
+          // 删除头节点
+          if(current === this.headNode) {
+            this.headNode = current.next;
+          }
+          // 删除尾节点
+          if(current === this.tailNode) {
+            this.tailNode = prev;
+          }
+
+          current.next = null;
+
+          this.size -= 1;
+          break;
+        }
+    }
+};
+FileUpload.Queue.prototype.clear = function() {
     while(0 !== this.size) {
         this.take();
     }
 };
-FileUploader.Queue.prototype.toArray = function() {
-    var ret = new Array(this.size);
+FileUpload.Queue.prototype.toArray = function() {
+    let ret = [];
 
-    var i = 0;
-    var current = null;
+    let i = 0;
+    let current = null;
     for(current = this.headNode; null !== current; current = current.next) {
-        ret[i] = current.data;
+        ret.push(current.data);
         i++;
     }
 
     return ret;
-},
-FileUploader.QueueNode = function(data, next) {
+};
+FileUpload.QueueNode = function(data, next) {
     this.data = data;
     this.next = next;
 };
-FileUploader.File = function(file) {
+FileUpload.File = function(file) {
     this.nativeFile = file;
 
-    this.id = 'xef' + FileUploader.File.uuid++;
+    this.id = 'xef' + FileUpload.File.uuid++;
     /**
      * The name of the file referenced by the File object
      */
@@ -367,4 +421,4 @@ FileUploader.File = function(file) {
      */
     this.lastModified = file.lastModified;
 };
-FileUploader.File.uuid = 0;
+FileUpload.File.uuid = 0;

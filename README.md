@@ -18,7 +18,9 @@ A javascript file uploader based on html5
 ```
 
 ```javascript
-var up = new FileUploader('myfile', {
+var up = new FileUploader({
+    // input 元素对象
+    fileElement: document.getElementById('myfile'),
     // 服务端接收文件的名称
     fieldName: 'file'
     // 是否自动上传
