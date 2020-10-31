@@ -253,7 +253,7 @@ FileUpload.prototype = {
         let fr = new FileReader();
 
         fr.onload = (e) => {
-            _self.xhr.send(this.result);
+            _self.xhr.send(fr.result);
 
             fr = fr.onload = null;
         };

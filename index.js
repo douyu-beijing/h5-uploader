@@ -1,7 +1,7 @@
 /**
  * FileUploader
  *
- * @version 0.2.0
+ * @version 0.2.1
  */
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
@@ -263,7 +263,7 @@
             let fr = new FileReader();
 
             fr.onload = (e) => {
-                _self.xhr.send(this.result);
+                _self.xhr.send(fr.result);
 
                 fr = fr.onload = null;
             };
